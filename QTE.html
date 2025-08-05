@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>QTE 反應挑戰</title>
+    <style>
+        /* --- 頁面與佈局樣式 --- */
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            overflow: hidden;
+            background-color: transparent; /* 改為透明以看到底層頁面 */
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            color: white;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* --- 主要遊戲容器 --- */
+        #qte-modal {
+            text-align: center;
+        }
+
+        /* --- 圓形轉盤 --- */
+        #qte-spinner-container {
+            width: 220px;
+            height: 220px;
+            border: 3px solid rgba(255, 255, 255, 0.4);
+            border-radius: 50%;
+            margin: 20px auto;
+            position: relative;
+            background-color: rgba(0, 0, 0, 0.5);
+        }
+
+        /* --- SVG 畫布 (指針與區塊) --- */
+        #qte-svg-canvas {
+            position: absolute;
+            width: 240px;
+            height: 240px;
+            top: -10px;
+            left: -10px;
+            transform: translateZ(0);
+            overflow: visible;
+        }
+
+        /* --- SVG 路徑樣式 --- */
+        #qte-marker-path {
+            fill: rgba(120, 120, 120, 0.9);
+            stroke: none;
+        }
+        #qte-error-markers-path {
+            fill: none;
+            stroke: #FF1744;
+            stroke-width: 2px;
+        }
+        #qte-wiper-path {
+            fill: black;
+            stroke: black;
+            stroke-width: 1;
+        }
+        #qte-hand-path {
+            stroke: #FF1744;
+            stroke-width: 2px;
+            stroke-linecap: round;
+        }
+
+        /* --- 中央提示文字 --- */
+        #qte-prompt {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background-color: rgba(40, 40, 40, 0.9);
+            color: white;
+            padding: 10px 25px;
+            border-radius: 6px;
+            font-size: 16px;
+            font-weight: 600;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            z-index: 3;
+        }
+        
+        /* 隱藏調試面板，因為它在擴充功能中不需要 */
+        #debug-panel {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="qte-overlay">
+        <div id="qte-modal">
+            <div id="qte-spinner-container">
+                <svg id="qte-svg-canvas"></svg>
+                <div id="qte-prompt">Space</div>
+            </div>
+        </div>
+        <!-- 調試面板仍然保留在 HTML 中，但通過 CSS 隱藏 -->
+        <div id="debug-panel"></div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- 新增：從 URL 獲取提示文字 ---
+            try {
+                const urlParams = new URLSearchParams(window.location.search);
+                const promptText = urlParams.get('prompt');
+                if (promptText) {
+                    document.getElementById('qte-prompt').textContent = decodeURIComponent(promptText);
+                }
+            } catch (e) {
+                console.error("Error parsing URL params:", e);
+            }
+
+            class QTEGame_SVG_Fan {
+                // ... (原始的 constructor, init, createUI, 等方法保持不變)
+                constructor() {
+                    this.toleranceRange = { min: 10, max: 25 };
+                    this.speedRange = { min: 120, max: 360 };
+                    this.directionSetting = 0;
+                    this.successDelay = 50;
+                    this.reactionTimeRange = { min: 300, max: 2000 };
+
+                    this.tolerance = 15;
+                    this.rotationSpeedDegreesPerSecond = 120;
+                    this.rotationDirection = 1;
+                    this.angle = 0;
+                    this.isRunning = false;
+                    this.animationId = null;
+                    this.markerHit = false;
+                    this.missedMarkers = [];
+                    this.lastTargetAngle = null;
+
+                    this.spinnerContainer = document.getElementById('qte-spinner-container');
+                    this.svgCanvas = document.getElementById('qte-svg-canvas');
+                    this.promptElement = document.getElementById('qte-prompt');
+                    this.modalElement = document.getElementById('qte-modal');
+                    
+                    this.markerPath = null;
+                    this.errorMarkersPath = null;
+                    this.handPath = null;
+                    this.wiperPath = null;
+                    
+                    this.init();
+                }
+
+                init() {
+                    // 不再需要讀取設定，使用預設值
+                    this.createUI();
+                    this.resetGame();
+                    this.bindEvents();
+                }
+
+                createUI() {
+                    const svgNS = "http://www.w3.org/2000/svg";
+                    this.wiperPath = document.createElementNS(svgNS, 'path');
+                    this.wiperPath.id = 'qte-wiper-path';
+                    this.markerPath = document.createElementNS(svgNS, 'path');
+                    this.markerPath.id = 'qte-marker-path';
+                    this.errorMarkersPath = document.createElementNS(svgNS, 'path');
+                    this.errorMarkersPath.id = 'qte-error-markers-path';
+                    this.handPath = document.createElementNS(svgNS, 'path');
+                    this.handPath.id = 'qte-hand-path';
+                    this.svgCanvas.appendChild(this.wiperPath);
+                    this.svgCanvas.appendChild(this.markerPath);
+                    this.svgCanvas.appendChild(this.errorMarkersPath);
+                    this.svgCanvas.appendChild(this.handPath);
+                }
+                
+                // ... (polarToCartesian, describeRingSegment, describeFan 等繪圖方法保持不變)
+                polarToCartesian(centerX, centerY, radius, angleInDegrees) {
+                    const angleInRadians = (angleInDegrees - 90) * Math.PI / 180.0;
+                    return {
+                        x: centerX + (radius * Math.cos(angleInRadians)),
+                        y: centerY + (radius * Math.sin(angleInRadians))
+                    };
+                }
+
+                describeRingSegment(x, y, innerRadius, outerRadius, startAngle, endAngle) {
+                    const startOuter = this.polarToCartesian(x, y, outerRadius, startAngle);
+                    const endOuter = this.polarToCartesian(x, y, outerRadius, endAngle);
+                    const startInner = this.polarToCartesian(x, y, innerRadius, startAngle);
+                    const endInner = this.polarToCartesian(x, y, innerRadius, endAngle);
+                    const largeArcFlag = Math.abs(endAngle - startAngle) > 180 ? "1" : "0";
+                    const d = [ "M", startInner.x, startInner.y, "L", startOuter.x, startOuter.y, "A", outerRadius, outerRadius, 0, largeArcFlag, 1, endOuter.x, endOuter.y, "L", endInner.x, endInner.y, "A", innerRadius, innerRadius, 0, largeArcFlag, 0, startInner.x, startInner.y, "Z" ].join(" ");
+                    return d;
+                }
+
+                describeFan(x, y, radius, startAngle, endAngle) {
+                    const start = this.polarToCartesian(x, y, radius, startAngle);
+                    const end = this.polarToCartesian(x, y, radius, endAngle);
+                    const largeArcFlag = Math.abs(endAngle - startAngle) > 180 ? "1" : "0";
+                    const d = ["M", x, y, "L", start.x, start.y, "A", radius, radius, 0, largeArcFlag, 1, end.x, end.y, "Z"].join(" ");
+                    return d;
+                }
+                
+                updateViews() {
+                    if (!this.spinnerContainer || this.spinnerContainer.offsetWidth === 0) {
+                        requestAnimationFrame(() => this.updateViews());
+                        return;
+                    }
+                    
+                    const svgSize = 240; 
+                    const center = svgSize / 2;
+                    const radius = (this.spinnerContainer.offsetWidth / 2) - (3 / 2);
+                    const markerThickness = 8;
+
+                    const markerStartAngle = this.targetAngle - this.tolerance;
+                    const markerEndAngle = this.targetAngle + this.tolerance;
+                    const markerPathData = this.describeRingSegment(center, center, radius - (markerThickness / 2), radius + (markerThickness / 2), markerStartAngle, markerEndAngle);
+                    this.markerPath.setAttribute('d', markerPathData);
+                    this.markerPath.style.fill = this.markerHit ? 'rgba(76, 175, 80, 0.9)' : 'rgba(120, 120, 120, 0.9)';
+
+                    let errorPathData = "";
+                    this.missedMarkers.forEach(angle => {
+                        const startPoint = this.polarToCartesian(center, center, radius - 12, angle);
+                        const endPoint = this.polarToCartesian(center, center, radius + 12, angle);
+                        errorPathData += `M ${startPoint.x} ${startPoint.y} L ${endPoint.x} ${endPoint.y} `;
+                    });
+                    this.errorMarkersPath.setAttribute('d', errorPathData);
+
+                    const wiperWidth = 30;
+                    const gap = 1 * this.rotationDirection;
+                    const wiperStartAngle = this.angle - gap;
+                    const wiperEndAngle = this.angle - (wiperWidth * this.rotationDirection) - gap;
+                    const wiperPathData = this.describeFan(center, center, radius * 0.9, wiperStartAngle, wiperEndAngle);
+                    this.wiperPath.setAttribute('d', wiperPathData);
+
+                    const handEndPoint = this.polarToCartesian(center, center, radius - 2, this.angle);
+                    const handPathData = `M ${center} ${center} L ${handEndPoint.x} ${handEndPoint.y}`;
+                    this.handPath.setAttribute('d', handPathData);
+                }
+                
+                generateNewTarget() {
+                    this.tolerance = Math.random() * (this.toleranceRange.max - this.toleranceRange.min) + this.toleranceRange.min;
+                    this.rotationSpeedDegreesPerSecond = Math.random() * (this.speedRange.max - this.speedRange.min) + this.speedRange.min;
+                    this.rotationDirection = Math.random() < 0.5 ? 1 : -1;
+                    
+                    let possibleAngles = [];
+                    if (this.lastTargetAngle === null) {
+                        for (let i = 0; i < 360; i++) possibleAngles.push(i);
+                    } else {
+                        const historyBuffer = 90;
+                        const forbiddenStart = (this.lastTargetAngle - historyBuffer + 360) % 360;
+                        const forbiddenEnd = (this.lastTargetAngle + historyBuffer) % 360;
+
+                        for (let i = 0; i < 360; i++) {
+                            let isForbidden = false;
+                            if (forbiddenStart <= forbiddenEnd) {
+                                if (i >= forbiddenStart && i <= forbiddenEnd) isForbidden = true;
+                            } else {
+                                if (i >= forbiddenStart || i <= forbiddenEnd) isForbidden = true;
+                            }
+                            if (!isForbidden) possibleAngles.push(i);
+                        }
+                    }
+
+                    if (possibleAngles.length === 0) {
+                        for (let i = 0; i < 360; i++) possibleAngles.push(i);
+                    }
+                    
+                    this.targetAngle = possibleAngles[Math.floor(Math.random() * possibleAngles.length)];
+                    this.lastTargetAngle = this.targetAngle;
+                    this.markerHit = false;
+                    this.missedMarkers = [];
+                }
+                
+                resetGame() {
+                    this.stopRotation();
+                    this.generateNewTarget();
+                    const randomReactionTime = (this.reactionTimeRange.min + Math.random() * (this.reactionTimeRange.max - this.reactionTimeRange.min)) / 1000;
+                    const angleOffset = this.rotationSpeedDegreesPerSecond * randomReactionTime;
+                    this.angle = (this.rotationDirection === 1) ? (this.targetAngle - angleOffset + 360) % 360 : (this.targetAngle + angleOffset) % 360;
+                    this.updateViews();
+                    this.startRotation();
+                }
+
+                startRotation() {
+                    if (this.isRunning) return;
+                    this.isRunning = true;
+                    let lastTime = 0;
+                    const animate = (timestamp) => {
+                        if (!this.isRunning) return;
+                        if (!lastTime) lastTime = timestamp;
+                        const deltaTime = (timestamp - lastTime) / 1000;
+                        lastTime = timestamp;
+                        const rotationAmount = this.rotationSpeedDegreesPerSecond * this.rotationDirection * deltaTime;
+                        this.angle = (this.angle + rotationAmount + 360) % 360;
+                        this.updateViews();
+                        this.animationId = requestAnimationFrame(animate);
+                    };
+                    this.animationId = requestAnimationFrame(animate);
+                }
+
+                stopRotation() {
+                    this.isRunning = false;
+                    if (this.animationId) {
+                        cancelAnimationFrame(this.animationId);
+                        this.animationId = null;
+                    }
+                }
+                
+                bindEvents() {
+                    this.handleSpacePress = this.handleSpacePress.bind(this);
+                    document.addEventListener('keydown', this.handleSpacePress);
+                }
+
+                handleSpacePress(e) {
+                    if (e.code !== 'Space' || !this.isRunning || this.markerHit) return;
+                    e.preventDefault();
+                    const diff = Math.abs(this.angle - this.targetAngle);
+                    const actualDiff = Math.min(diff, 360 - diff);
+                    if (actualDiff <= this.tolerance) {
+                        this.onSuccess();
+                    } else {
+                        this.onMiss();
+                    }
+                }
+
+                // --- 修改：與擴充功能通訊 ---
+                onSuccess() {
+                    this.markerHit = true;
+                    this.stopRotation();
+                    this.updateViews();
+                    // 向父視窗 (content script) 發送成功訊息
+                    window.parent.postMessage({ type: 'QTE_RESULT', success: true }, '*');
+                }
+
+                // --- 修改：與擴充功能通訊 ---
+                onMiss() {
+                    // 只要失敗一次，就結束遊戲並發送失敗訊息
+                    this.stopRotation();
+                    this.missedMarkers.push(this.angle); 
+                    this.updateViews();
+                    
+                    if (this.modalElement && typeof this.modalElement.animate === 'function') {
+                         this.modalElement.animate([
+                            { transform: 'translateX(0px)' }, { transform: 'translateX(-10px)' },
+                            { transform: 'translateX(10px)' }, { transform: 'translateX(-10px)' },
+                            { transform: 'translateX(10px)' }, { transform: 'translateX(0px)' }
+                        ], { duration: 300, easing: 'ease-in-out' });
+                    }
+                    
+                    // 向父視窗 (content script) 發送失敗訊息
+                    window.parent.postMessage({ type: 'QTE_RESULT', success: false }, '*');
+                }
+            }
+
+            new QTEGame_SVG_Fan();
+        });
+    </script>
+
+</body>
+</html>

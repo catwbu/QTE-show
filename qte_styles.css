@@ -1,0 +1,11 @@
+#qte-everywhere-iframe {
+    position: fixed !important;
+    top: 0 !important;
+    left: 0 !important;
+    width: 100vw !important;
+    height: 100vh !important;
+    border: none !important;
+    /* 使用一個極高的 z-index 確保在最上層 */
+    z-index: 2147483647 !important; 
+    background-color: rgba(0, 0, 0, 0.85) !important;
+}
