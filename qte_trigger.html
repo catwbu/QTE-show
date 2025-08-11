@@ -1,0 +1,31 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <title>QTE 挑戰</title>
+    <!-- 樣式現在與 QTE.html 完全一致 -->
+    <style>
+        body, html { margin: 0; padding: 0; width: 100%; height: 100%; overflow: hidden; background-color: #000000; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; color: white; }
+        #qte-overlay { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; display: flex; justify-content: center; align-items: center; z-index: 1; }
+        #qte-modal { text-align: center; }
+        #qte-spinner-container { width: 220px; height: 220px; border: 3px solid rgba(255, 255, 255, 0.4); border-radius: 50%; margin: 20px auto; position: relative; background-color: transparent; }
+        #qte-svg-canvas { position: absolute; width: 240px; height: 240px; top: -10px; left: -10px; transform: translateZ(0); overflow: visible; }
+        #qte-marker-path { fill: rgba(120, 120, 120, 0.9); stroke: none; }
+        #qte-error-markers-path { fill: none; stroke: #FF0000; stroke-width: 2px; }
+        #qte-wiper-path { fill: black; stroke: black; stroke-width: 1; }
+        #qte-hand-path { stroke: #FF1744; stroke-width: 2px; stroke-linecap: round; }
+        #qte-prompt { position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); background-color: rgba(40, 40, 40, 0.9); color: white; padding: 10px 25px; border-radius: 6px; font-size: 16px; font-weight: 600; border: 1px solid rgba(255, 255, 255, 0.2); text-transform: uppercase; letter-spacing: 0.5px; z-index: 3; }
+    </style>
+</head>
+<body>
+    <div id="qte-overlay">
+        <div id="qte-modal">
+            <div id="qte-spinner-container">
+                <svg id="qte-svg-canvas"></svg>
+                <div id="qte-prompt">Space</div>
+            </div>
+        </div>
+    </div>
+    <script src="qte_trigger.js"></script>
+</body>
+</html>

@@ -2,73 +2,181 @@
 <html lang="zh-TW">
 <head>
     <meta charset="UTF-8">
-    <title>QTE Everywhere 設定</title>
+    <title>設定</title>
     <style>
         body {
-            font-family: sans-serif;
-            background-color: #121212;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #000000;
             color: #e0e0e0;
-            padding: 20px;
-            max-width: 600px;
-            margin: 20px auto;
+            padding: 0;
+            margin: 0;
+            min-height: 500px;
+        }
+        .wrapper {
+            display: flex;
+            min-height: 100vh;
+        }
+        /* --- 側邊導覽列 --- */
+        .sidebar {
+            width: 200px;
+            background-color: #1a1a1a;
+            padding: 20px 0;
+            flex-shrink: 0;
+        }
+        .sidebar-nav-item {
+            padding: 15px 20px;
+            color: #b0b0b0;
+            cursor: pointer;
+            font-size: 16px;
+            border-left: 3px solid transparent;
+            transition: background-color 0.2s, color 0.2s, border-left 0.2s;
+        }
+        .sidebar-nav-item:hover {
+            background-color: #252525;
+        }
+        .sidebar-nav-item.active {
+            background-color: #000;
+            color: white;
+            border-left: 3px solid #4CAF50;
+        }
+        /* --- 主要內容區 --- */
+        .main-content {
+            flex-grow: 1;
+            padding: 20px 40px;
+        }
+        .tab-pane {
+            display: none;
+        }
+        .tab-pane.active {
+            display: block;
         }
         h1 {
+            color: white;
             text-align: center;
-            color: #bb86fc;
+            margin-top: 0;
         }
-        #container {
-            background-color: #1e1e1e;
-            padding: 25px;
+        p {
+            color: #b0b0b0;
+            text-align: center;
+        }
+        .setting-group {
+            background-color: #1a1a1a;
+            padding: 20px;
             border-radius: 8px;
+            margin-bottom: 20px;
             border: 1px solid #333;
         }
-        label {
-            display: block;
-            margin-bottom: 10px;
-            font-size: 16px;
-        }
-        textarea {
+        h2 { text-align: left; margin-top: 0; }
+        label { display: block; margin-bottom: 8px; font-weight: bold; }
+        input[type="text"], input[type="url"], input[type="number"], select, textarea {
             width: 100%;
-            height: 200px;
             box-sizing: border-box;
-            background-color: #2c2c2c;
-            color: #e0e0e0;
-            border: 1px solid #555;
-            border-radius: 4px;
             padding: 10px;
-            font-size: 14px;
-            resize: vertical;
-        }
-        button {
-            padding: 10px 20px;
-            border: none;
-            background-color: #03dac6;
-            color: #000;
-            cursor: pointer;
-            border-radius: 4px;
+            background-color: #333;
+            color: white;
+            border: 1px solid #555;
+            border-radius: 5px;
             font-size: 16px;
+            margin-bottom: 10px;
+        }
+        textarea { height: 150px; }
+        /* --- 卡片式佈局 --- */
+        .card-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(350px, 1fr));
+            gap: 20px;
+        }
+        .interaction-card {
+            background-color: #252525;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid #444;
+        }
+        .interaction-card .custom-settings {
+            display: none; /* 預設隱藏 */
             margin-top: 15px;
-            display: block;
-            width: 100%;
+            border-top: 1px solid #444;
+            padding-top: 15px;
         }
-        button:hover {
-            background-color: #37ebd8;
+        .custom-settings .control-group-inline {
+            display: flex;
+            gap: 10px;
         }
+        .custom-settings .control-group-inline > div {
+            flex: 1;
+        }
+        /* --- 按鈕 --- */
+        .button-group { display: flex; gap: 10px; }
+        button {
+            padding: 12px;
+            font-size: 16px;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: background-color 0.3s;
+        }
+        .btn-save { background-color: #4CAF50; flex-grow: 1; }
+        .btn-save:hover { background-color: #45a049; }
+        .btn-add { background-color: #007BFF; }
+        .btn-add:hover { background-color: #0069d9; }
+        .btn-delete { background-color: #dc3545; }
+        .btn-delete:hover { background-color: #c82333; }
         #status {
             margin-top: 15px;
             text-align: center;
-            color: #03dac6;
+            color: #4CAF50;
+            font-weight: bold;
             height: 20px;
         }
     </style>
 </head>
 <body>
-    <h1>QTE Everywhere 設定</h1>
-    <div id="container">
-        <label for="domains">輸入要封鎖的網域 (每行一個):</label>
-        <textarea id="domains" placeholder="例如：&#10;example.com&#10;another-site.org"></textarea>
-        <button id="save">儲存設定</button>
-        <div id="status"></div>
+    <div class="wrapper">
+        <div class="sidebar">
+            <div class="sidebar-nav-item active" data-tab="blocker">網站封鎖</div>
+            <div class="sidebar-nav-item" data-tab="custom">自訂網頁互動</div>
+        </div>
+        <div class="main-content">
+            <!-- 頁籤1: 網站封鎖 -->
+            <div id="blocker" class="tab-pane active">
+                <h1>網站封鎖設定</h1>
+                <div class="setting-group">
+                    <h2>封鎖列表</h2>
+                    <p>請輸入您想要封鎖的網站域名，每行一個。</p>
+                    <textarea id="blocked-sites-textarea" placeholder="facebook.com&#10;instagram.com&#10;twitter.com"></textarea>
+                </div>
+                <div class="setting-group">
+                    <h2>攔截難度</h2>
+                    <p>選擇網站攔截時觸發的 QTE 難度。</p>
+                    <label for="difficulty-select">挑戰難度</label>
+                    <select id="difficulty-select">
+                        <option value="hard">困難</option>
+                        <option value="extreme">極度難</option>
+                        <option value="nightmare">惡夢</option>
+                        <option value="impossible">不可能的</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- 頁籤2: 自訂網頁互動 -->
+            <div id="custom" class="tab-pane">
+                <h1>自訂網頁互動</h1>
+                
+                <div id="card-container" class="card-grid">
+                    <!-- 卡片將由 JS 動態生成於此 -->
+                </div>
+
+                <!-- 新增按鈕移到卡片列表下方 -->
+                <div class="add-website-container">
+                    <button id="add-card-btn" class="btn-add-website">新增網站</button>
+                </div>
+            </div>
+
+            <!-- 共用的儲存按鈕和狀態顯示 -->
+            <button id="save-btn" class="btn-save">儲存所有設定</button>
+            <div id="status"></div>
+        </div>
     </div>
     <script src="options.js"></script>
 </body>
